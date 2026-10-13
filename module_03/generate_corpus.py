@@ -93,7 +93,8 @@ def validate_equipment_id(value) -> str | None:
       4. Не нашли — вернуть None: модель выдумала оборудование,
          объект будет отбракован.
     """
-    return str(value).strip()
+    key = _norm(str(value))
+    return REGISTRY_LOOKUP.get(key)
 
 
 BATCH_SIZE = 5        # объектов за один вызов (батчи по 3-5)
@@ -378,12 +379,18 @@ def extract_json_array(raw: str):
       4. json.loads(блок); если JSONDecodeError — вернуть None
          (вызывающий код сам перегенерирует батч).
     """
+    fenced = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", raw, re.DOTALL)
+    block = fenced.group(1) if fenced else None    
+    if block is None:
+        plain = re.search(r"\[.*\]", raw, re.DOTALL)
+        block = plain.group(0) if plain else None
+    if block is None:
+        return None
     try:
-        data = json.loads(raw)
+        data = json.loads(block)
         return data if isinstance(data, list) else None
     except json.JSONDecodeError:
         return None
-
 
 def ask_for_json(prompt: str, expected: int, what: str, max_tokens: int = 2500):
     """Вызов с повтором: битый JSON в батче — перегенерируем один раз."""
